@@ -201,9 +201,18 @@ data, labels = load_data(DATASET_DIR)
 # Encode the labels into one hot representation
 labels, lb = one_hot_encode(labels)
 
-# Split 80% train set and 20% test set
-(trainX, testX, trainY, testY) = train_test_split(data, labels,
-	test_size=0.20, stratify=labels, random_state=42)
+# Split 60% train set, 20% validation set and 20% test set
+train_ratio = 0.6
+validation_ratio = 0.2
+test_ratio = 0.2
+
+# Split into 60% train set and 40% test set
+x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=1 - train_ratio)
+
+# Split half of the test set to become test set and validation set
+# Because half of 40% will be 20% 
+# Thus, we could get 20% test set and 20% validation set
+x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=test_ratio/(test_ratio + validation_ratio))
 
 # Generate more data as training set
 aug = ImageDataGenerator(
@@ -220,14 +229,14 @@ model = build_model(INIT_LEARNING_RATE, EPOCHS)
 
 # Train the model
 History = model.fit(
-	aug.flow(trainX, trainY, batch_size=BATCH_SIZE),
-	steps_per_epoch=int(len(trainX) / BATCH_SIZE),
-	validation_data=(testX, testY),
-	validation_steps=int(len(testX) / BATCH_SIZE),
+	aug.flow(x_train, y_train, batch_size=BATCH_SIZE),
+	steps_per_epoch=int(len(x_train) / BATCH_SIZE),
+	validation_data=(x_val, y_val),
+	validation_steps=int(len(x_val) / BATCH_SIZE),
 	epochs=EPOCHS)
 
 # Make predictions using the trained model on the test set
-predIdxs = model.predict(testX, batch_size=BATCH_SIZE)
+predIdxs = model.predict(x_test, batch_size=BATCH_SIZE)
 
 
 # Find out the index of the label predicted by finding the index
@@ -236,7 +245,7 @@ predIdxs = np.argmax(predIdxs, axis=1)
 
 # Find out the index of the actual label by finding the index
 # that is having highest value which will be 1 because it is in one hot representation
-testIdxs = np.argmax(testY, axis=1)
+testIdxs = np.argmax(y_test, axis=1)
 
 # Calculate and print out the accuracy of the model predicting the test set by
 # comparing the predicted indexes and the actual indexes
@@ -244,7 +253,7 @@ accuracy = round((np.sum(predIdxs == testIdxs) / len(predIdxs)) * 100, 2)
 print(f"Accuracy: {accuracy}%")
 
 # Show the classification report including the precision, recall and F1 score values
-print(classification_report(testY.argmax(axis=1), predIdxs,
+print(classification_report(y_test.argmax(axis=1), predIdxs,
 	target_names=lb.classes_))
 
 # Save the model
